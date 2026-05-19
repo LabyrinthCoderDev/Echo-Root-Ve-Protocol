@@ -1,0 +1,159 @@
+﻿#!/usr/bin/env python3
+import sys
+import io
+from typing import List
+from contextlib import redirect_stdout
+
+EXIT_OK = 0
+EXIT_FAIL = 1
+
+HELP = """Vulpine Echo (Python core)
+Usage:
+  ve_kernel.py status
+  ve_kernel.py exec '<payload>'
+  ve_kernel.py audit
+  ve_kernel.py audit-verbose
+  ve_kernel.py quickcheck
+"""
+
+def print_ready():
+    print("READY")
+
+def run_audit(verbose: bool):
+    # Quiet by default; deterministic when verbose
+    if verbose:
+        print("one=one")
+        print("two=two")
+
+# Safe expression patterns for py: payloads
+# Allows: arithmetic, string ops, f-strings, comparisons, basic builtins
+# Blocks: attribute access chains, __dunder__, import, open, etc.
+_PY_SAFE_BUILTINS = {
+    "abs": abs, "round": round, "len": len, "str": str,
+    "int": int, "float": float, "bool": bool,
+    "min": min, "max": max, "sum": sum,
+    "True": True, "False": False, "None": None,
+}
+
+_PY_BLOCKED = (
+    "__", "import", "open", "exec", "eval",
+    "compile", "globals", "locals", "vars",
+    "getattr", "setattr", "delattr", "hasattr",
+    "breakpoint", "input", "print",
+)
+
+
+def _py_safe(expr: str) -> bool:
+    """Return True if expression is safe to evaluate."""
+    low = expr.lower()
+    return not any(b in low for b in _PY_BLOCKED)
+
+
+def do_exec(payload: str) -> int:
+    if not payload or not payload.strip():
+        print("Error: exec requires a payload like 'echo: ...' or 'py: ...'", file=sys.stderr)
+        return EXIT_FAIL
+
+    s = payload.strip()
+
+    if s.lower().startswith("echo:"):
+        print(s[5:].lstrip())
+        return EXIT_OK
+
+    if s.lower().startswith("py:"):
+        expr = s[3:].lstrip()
+
+        if not _py_safe(expr):
+            print(f"Error: expression blocked by safety policy: {expr!r}", file=sys.stderr)
+            return EXIT_FAIL
+
+        try:
+            value = eval(expr, {"__builtins__": _PY_SAFE_BUILTINS}, {})
+            print(value)
+            return EXIT_OK
+        except SyntaxError:
+            ns = {"__builtins__": _PY_SAFE_BUILTINS}
+            try:
+                exec(expr, ns, ns)
+                if "result" in ns:
+                    print(ns["result"])
+                return EXIT_OK
+            except Exception as e:
+                print(f"Error (exec): {e.__class__.__name__}: {e}", file=sys.stderr)
+                return EXIT_FAIL
+        except Exception as e:
+            print(f"Error (eval): {e.__class__.__name__}: {e}", file=sys.stderr)
+            return EXIT_FAIL
+
+    # Fallback: echo back
+    print(s)
+    return EXIT_OK
+
+def _capture(fn, *args, **kwargs):
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = fn(*args, **kwargs)
+    out = buf.getvalue().rstrip("\n")
+    return rc, out
+
+def cmd_quickcheck() -> int:
+    tests = [
+        ("status",           lambda: _capture(print_ready)),
+        ("py: (10*2)+5",     lambda: _capture(do_exec, "py: (10*2)+5")),
+        ('py: f"sum={1+2}"', lambda: _capture(do_exec, 'py: f"sum={1+2}"')),
+        ("audit-verbose",    lambda: _capture(run_audit, True)),
+    ]
+    expect = {
+        "status": "READY",
+        "py: (10*2)+5": "25",
+        'py: f"sum={1+2}"': "sum=3",
+        "audit-verbose": "one=one\ntwo=two",
+    }
+
+    failed = 0
+    print("VE Quickcheck\n---------------")
+    for name, runner in tests:
+        rc, out = runner()
+        want = expect[name]
+        ok = (rc in (None, EXIT_OK)) and (out.strip() == want)
+        status = "PASS" if ok else "FAIL"
+        print(f"{status:4} :: {name:16} :: got='{out}' :: want='{want}'")
+        if not ok:
+            failed += 1
+
+    return EXIT_OK if failed == 0 else EXIT_FAIL
+
+def main(argv: List[str]) -> int:
+    if len(argv) < 2:
+        print(HELP)
+        return EXIT_FAIL
+
+    cmd = argv[1].lower()
+
+    if cmd == "status":
+        print_ready()
+        return EXIT_OK
+
+    if cmd == "exec":
+        if len(argv) < 3:
+            print("Error: exec requires a payload string", file=sys.stderr)
+            return EXIT_FAIL
+        payload = " ".join(argv[2:])
+        return do_exec(payload)
+
+    if cmd == "audit":
+        run_audit(verbose=False)
+        return EXIT_OK
+
+    if cmd == "audit-verbose":
+        run_audit(verbose=True)
+        return EXIT_OK
+
+    if cmd == "quickcheck":
+        return cmd_quickcheck()
+
+    print(HELP)
+    return EXIT_FAIL
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
