@@ -1,0 +1,3 @@
+﻿[ERROR] L1: invalid JSON: Extra data: line 1 column 275 (char 274)
+[ERROR] L2: hash_self mismatch
+[FAIL] Issues found. See messages above.
