@@ -1,0 +1,66 @@
+# Windows
+Thumbs.db
+Desktop.ini
+
+# PowerShell
+*.pshistory
+
+# Temp/logs from VE runs
+*.log
+*.tmp
+*.out.txt
+*.err.txt
+
+# Editors
+.vscode/# local dev junk
+*.bak
+*.broken_backup
+*.bak_*
+ve_ledger.jsonl.bak_*
+/checkpoints/
+/secrets/
+/echo-root-ve/
+/QUICKCHECK_LOGS/
+/artifacts_*/
+open_ledger.ps1
+ve_fix_and_check.ps1
+ve_fix_and_check2.ps1
+ve_all_in_one.ps1
+# VE local / lab stuff
+checkpoints/
+secrets/
+echo-root-ve/
+policies/
+*.bak
+ve_ledger.jsonl.bak*
+*.broken_backup
+*.tmp
+
+# Local virtual env
+.venv/
+
+# Runtime artifacts
+ledger.jsonl
+sysinfo.json
+ve_ledger.jsonl
+
+# Quickcheck logs folder (already present, but keep explicit)
+QUICKCHECK_LOGS/
+# Quickcheck logs (file or directory)
+QUICKCHECK_LOGS
+QUICKCHECK_LOGS/
+
+# Runtime locks
+*.lock
+
+# Runtime data — generated, not source
+ve_data/*.txt
+ve_data/*.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Development history snapshots
+dev-history/

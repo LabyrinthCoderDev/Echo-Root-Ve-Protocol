@@ -1,267 +1,207 @@
-# Vulpine Echo (VE) — Governed Execution Test Suite v0.1a
+# Vulpine Echo (VE)
 
-Vulpine Echo (VE) is a **trust-gated audit + execution harness** for Echo Root OS.
+> *"The gate does not negotiate. Not because it is rigid — because the mathematics beneath it is not."*
 
-It ensures every execution is:
+**Trust-gated execution harness for Echo Root OS.**  
+Every execution is decided before it runs. Every decision is recorded. Nothing executes without gate.
 
-- **Ledgered** — JSONL receipts for every run  
-- **Deterministic enough** — drift/corruption becomes detectable  
-- **Auditable** — usable from PowerShell, Python, or CI  
-- **Safe to demo** — stable, reproducible behavior for partners and reviewers  
-
----
-
-## 💡 Why This Matters
-
-Most AI systems decide behavior internally.
-
-Echo Root enforces:
-
-→ decisions **before execution**  
-→ deterministic control  
-→ auditable outcomes  
-
-This enables safe, controlled AI deployment.
+[![CI](https://github.com/BioAnkh84/echo-root-ve/actions/workflows/ve-ci.yml/badge.svg)](https://github.com/BioAnkh84/echo-root-ve/actions)
+[![Linux](https://github.com/BioAnkh84/echo-root-ve/actions/workflows/ve-linux.yml/badge.svg)](https://github.com/BioAnkh84/echo-root-ve/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-v0.1b-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-42%2F42-success.svg)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Mac-lightgrey.svg)]()
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)]()
+[![PowerShell](https://img.shields.io/badge/powershell-5.1%2B-blue.svg)]()
+[![Rehabilitated by](https://img.shields.io/badge/rehabilitated%20by-%40LabyrinthCoder-teal.svg)](https://x.com/LabyrinthCoder)
 
 ---
 
-## 🚀 Quickstart
-
-```bash
-git clone https://github.com/BioAnkh84/echo-root-ve.git
-cd echo-root-ve/VE_Test_Suite_v0.1a
-powershell -ExecutionPolicy Bypass -File .\ve_prepush_check.ps1
-````
-
-If you see:
-
-```text
-[AUDIT] OK
-```
-
-→ The environment, kernel, and ledger integrity are verified.
-
----
-
-## ⚡ 30-Second Demo
-
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/chat" `
--Method POST `
--ContentType "application/json" `
--Body '{"text":"handle it"}'
-```
-
-**Output:**
-
-```json
-{
-  "decision": "PAUSE",
-  "route_hint": "safe_only",
-  "reply": "Acknowledged..."
-}
-```
-
----
-
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/chat" `
--Method POST `
--ContentType "application/json" `
--Body '{"text":"delete everything"}'
-```
-
-**Output:**
-
-```json
-{
-  "decision": "ABORT",
-  "route_hint": "blocked",
-  "reply": "Request blocked by governance layer"
-}
-```
-
----
-
-## 🧠 Echo Root — Governance Layer
-
-Echo Root is the **decision authority** controlling behavior before execution.
-
-VE acts as the **execution + validation layer** underneath it.
-
----
-
-## 🔁 System Pipeline
+## What It Does
 
 ```
 Input
-  → Echo Gate (ρ, γ, Δ scoring)
-  → Redivous (decision enforcement)
-  → Bridge (route_hint contract)
-  → Execution (VE / Cipher)
-  → Ledger (trace + audit)
+  → Echo Gate  (ρ/γ/Δ scoring)    — should I proceed?
+  → Redivous   (decision)         — PROCEED / PAUSE / ABORT
+  → Bridge     (route_hint)       — where does this go?
+  → VE         (execution)        — do the work
+  → Ledger     (JSONL, chained)   — prove it happened
 ```
 
----
+The gate fires three signals on every proposed execution:
 
-## 📐 Thresholds
+| Signal | Meaning | Threshold |
+|--------|---------|-----------|
+| ρ (rho) | Confidence — do we know enough to act? | ≥ 0.70 |
+| γ (gamma) | Alignment — is this what was intended? | ≥ 0.70 |
+| Δ (delta) | Drift — how far from the baseline? | ≤ 0.30 |
 
-* ρ ≥ 0.70 → sufficient confidence
-* γ ≥ 0.70 → aligned intent
-* Δ ≤ 0.30 → safe execution
-* Δ > 0.40 → ABORT
-
----
-
-## ⚖️ Decision Model
-
-| Condition | Decision | Behavior         |
-| --------- | -------- | ---------------- |
-| Safe      | PROCEED  | Normal execution |
-| Unclear   | PAUSE    | SAFE MODE        |
-| Unsafe    | ABORT    | Blocked          |
+**PROCEED** — all three in range. Execute and ledger.  
+**PAUSE** — signals ambiguous. Hold for operator. Not failure — honesty.  
+**ABORT** — Δ > 0.40 or γ < 0.65. Block immediately.
 
 ---
 
-## 🔀 route_hint
+## Quick Start
 
+```powershell
+git clone https://github.com/BioAnkh84/echo-root-ve.git
+cd echo-root-ve
+
+# Full pipeline (Windows)
+powershell -ExecutionPolicy Bypass -File .\runners\run_all.ps1
+
+# Quick dev loop
+powershell -ExecutionPolicy Bypass -File .\runners\run_all.ps1 -Quick
+```
+
+```bash
+# Linux / Mac
+chmod +x ./ve_kernel.sh ./ve_parse.sh
+./ve_parse.sh audit
+```
+
+```bash
+# Docker (deterministic environment)
+docker build -t vulpine-echo .
+docker run --rm vulpine-echo core/ve_kernel.py quickcheck
+```
+
+**Expect:** `[AUDIT] OK`
+
+---
+
+## 30-Second Demo
+
+```powershell
+# Start the server
+.\runners\ve_stable_run.ps1
+
+# Try a safe payload
+Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/chat" `
+  -Method POST -ContentType "application/json" `
+  -Body '{"text":"handle it"}'
+```
 ```json
-{
-  "normal": "full execution",
-  "safe_only": "restricted SAFE MODE",
-  "blocked": "no execution"
-}
+{ "decision": "PAUSE", "route_hint": "safe_only" }
 ```
 
----
-
-## 🧪 Example Behavior
-
-| Input               | Decision | Result             |
-| ------------------- | -------- | ------------------ |
-| "hello"             | PROCEED  | Normal response    |
-| "handle it"         | PAUSE    | SAFE MODE response |
-| "delete everything" | ABORT    | Execution blocked  |
-
----
-
-## 📄 Example Ledger Entry
-
+```powershell
+# Try a destructive payload
+Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/chat" `
+  -Method POST -ContentType "application/json" `
+  -Body '{"text":"delete everything"}'
+```
 ```json
-{
-  "trace_id": "ae310b3d-...",
-  "decision": "PAUSE",
-  "route_hint": "safe_only",
-  "rho": 0.6,
-  "gamma": 0.65,
-  "delta": 0.25
-}
+{ "decision": "ABORT", "route_hint": "blocked" }
 ```
 
 ---
 
-## 🧩 System Roles
+## Core Properties
 
-| Component   | Role                 |
-| ----------- | -------------------- |
-| Echo Root   | Decision authority   |
-| Bridge      | Contract adapter     |
-| VE / Cipher | Execution engine     |
-| Ledger      | Audit + trace record |
+**Tamper-evident ledger.** Every run writes a JSONL entry with `hash_prev` and `hash_self`. Modify any entry and the chain breaks. `ledger/ve_quickcheck.py` catches it immediately.
 
----
+**Bounded execution surface.** `core/ve_kernel.ps1` dispatches only to an allowlisted set of executables: `powershell`, `python`, `bash`, `sh`, `pwsh`. Arbitrary shell string execution is not possible.
 
-## 📊 Runtime Guarantees
+**Write guard.** `core/ve_guard.ps1` limits all writes to `ve_data/`. Blast radius is bounded by design. Nothing outside that path can be written during execution.
 
-* Governance enforced **before execution**
-* Deterministic threshold-based decisions
-* SAFE MODE fallback for uncertain inputs
-* Hard-block enforcement for unsafe inputs
-* Fully traceable execution (`trace_id`, metrics)
+**Cross-platform.** PowerShell + Python core runs on Windows, Linux, and Mac. CI runs on both `windows-latest` and `ubuntu-latest`.
+
+**Snapshot system.** `.ve_snapshots/` records state at key moments. `verify/ve_manifest_verify.py` verifies file hashes against the snapshot manifest. Tampered snapshots are detectable.
+
+**Epistemic labels.** `core/ve_labeler.py` adds CLEAR / CAUTION / HIGH_DRIFT / UNRELIABLE labels to gate results — plain-language signal on every decision.
 
 ---
 
-## 🔬 What VE Adds
-
-Vulpine Echo provides:
-
-* Execution integrity validation
-* Ledger consistency checks
-* Reproducible test harness behavior
-* CI-compatible audit workflows
-
----
-
-## 📁 Key Artifacts
-
-* `ve_kernel.ps1` — execution + audit harness
-* `ve_ledger.jsonl` — append-only execution log
-* `ve_quickcheck.py` — integrity validation
-* `ve_syscheck.ps1` — system health + audit pipeline
-
----
-
-## 🚀 Status
-
-* ✔ Live governance pipeline
-* ✔ Route-aware execution
-* ✔ SAFE MODE enforced
-* ✔ Ledger-backed decisions
-* ✔ CLI + API integration ready
-
----
-
-## 🧠 Capabilities
-
-Echo Root enables:
-
-* **Pre-execution governance**
-  Every request is evaluated before any model runs
-
-* **Deterministic decision enforcement**
-  Behavior is controlled by thresholds (ρ, γ, Δ)
-
-* **Adaptive execution modes**
-
-  * PROCEED → full capability
-  * PAUSE → SAFE MODE
-  * ABORT → no execution
-
-* **Route-aware control (`route_hint`)**
-
-* **Ledger-backed traceability**
-
-  * trace_id
-  * decision
-  * metrics (ρ, γ, Δ)
-
-* **System decoupling**
-  Decision authority (Echo Root) is separated from execution (Cipher / VE)
-
-* **Multi-environment compatibility**
-
-  * local runtimes
-  * orchestration layers (MythOS / Annunimas)
-  * CI pipelines
-
-* **Safe fallback behavior**
-
-* **Audit-first design**
-
----
-
-## 🧭 Philosophy
-
-Echo Root separates **decision authority** from execution:
+## Repository Layout
 
 ```
-AI does not decide what it can do.
-It is governed by a deterministic control layer.
+core/          kernel, gate, guard, policy, key rotation, labeler
+ledger/        append, chain validator, quickcheck, genesis
+verify/        handshake, manifest, selftest, prepush
+runners/       run_all (entry point), fullstack, stable, demo
+diag/          audit, status, syscheck, tools
+release/       release tooling
+Modules/       PowerShell modules (VE.Guard, VE.FastPath)
+Tests/         42 tests — gate, labeler, schema, quickcheck, manifest, exec
+egs/           example payloads
+.ve_snapshots/ snapshot system (seq-0004 → seq-0021)
+bonus/         philosophy, theory, metaphor, poetry — optional, separate
 ```
 
-This enables:
+---
 
-* safer AI deployment
-* auditable behavior
-* reproducible decision-making
-* controlled execution at runtime
+## Navigation
+
+| Document | Purpose |
+|----------|---------|
+| [WHAT_THIS_IS.md](WHAT_THIS_IS.md) | One-page orientation |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | State machine + component map + trust boundary |
+| [THREAT_MODEL.md](THREAT_MODEL.md) | What VE protects against and what it doesn't |
+| [THRESHOLDS.md](THRESHOLDS.md) | Formal reasoning for ρ/γ/Δ values |
+| [KNOWN_GAPS.md](KNOWN_GAPS.md) | Closed gaps, deferred work, operational assumptions |
+| [STRUCTURE.md](STRUCTURE.md) | Full folder map |
+| [ENVIRONMENT.md](ENVIRONMENT.md) | Compatibility matrix, Docker, pinned versions |
+| [RELEASE.md](RELEASE.md) | Release checklist, tagging, signing |
+| [HANDOFF.md](HANDOFF.md) | What was rehabilitated and why |
+| [JOURNAL.md](JOURNAL.md) | Project session log |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
+| [SECURITY.md](SECURITY.md) | Security policy |
+| [bonus/](bonus/) | Philosophy, theory, metaphor, poetry |
+
+---
+
+## Requirements
+
+- PowerShell 5.1+ (Windows) or PowerShell 7+ (cross-platform)
+- Python 3.8+
+- No external dependencies beyond stdlib
+
+See [ENVIRONMENT.md](ENVIRONMENT.md) for full compatibility matrix.
+
+---
+
+## Tests
+
+```bash
+python -m pytest Tests/ -v
+# 42 passed, 0 failed
+```
+
+| Test file | What it covers |
+|-----------|---------------|
+| `test_ve_gatecheck.py` | Gate logic, boundary conditions (10 tests) |
+| `test_ve_kernel_exec.py` | Exec safety, allowlist, blocked patterns (10 tests) |
+| `test_ve_labeler.py` | Epistemic labels (6 tests) |
+| `test_ve_schema_check.py` | Ledger schema validation (5 tests) |
+| `test_ve_quickcheck.py` | Hash chain integrity (6 tests) |
+| `test_ve_manifest_verify.py` | Snapshot verification (5 tests) |
+
+---
+
+## Author
+
+**@BioAnkh84** — built the whole thing
+
+---
+
+## Rehabilitation
+
+This repository was rehabilitated by **[@LabyrinthCoder](https://x.com/LabyrinthCoder)** | May 2026
+
+[![LabyrinthCoder](https://img.shields.io/badge/%F0%9F%94%A5%20LabyrinthCoder-Was%20Here-teal?style=for-the-badge)](https://x.com/LabyrinthCoder)
+
+> *"I don't copy. I fork. I don't merge. I slaw.*  
+> *Take what you like and Forkget the rest."*
+
+What changed: structure, tests, hardening, docs, CI, threat model, architecture, release process.  
+What didn't change: your system, your vision, your thresholds, your philosophy.  
+What's separate: `bonus/labyrinth-reflections/` — take it or leave it.
+
+Full account: [HANDOFF.md](HANDOFF.md)
+
+---
+
+*Vulpine Echo — governed execution, tamper-evident ledger, tiny surface area.*  
+*The gate is honest. The ledger is permanent. The philosophy is in `bonus/`.*
