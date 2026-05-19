@@ -1,0 +1,36 @@
+name: VE PR Check
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Schema check
+        run: |
+          if [ -f ve_ledger.jsonl ]; then
+            python ledger/ve_schema_check.py --ledger ve_ledger.jsonl --psi-min 1.38
+          else
+            echo "[SKIP] No ve_ledger.jsonl present — skipping schema check"
+          fi
+
+      - name: Quickcheck
+        run: |
+          if [ -f ve_ledger.jsonl ]; then
+            python ledger/ve_quickcheck.py --ledger ve_ledger.jsonl --psi-min 1.38
+          else
+            echo "[SKIP] No ve_ledger.jsonl present — skipping quickcheck"
+          fi
+
+      - name: VE PR verify (checks.py)
+        run: python .github/ve_checks.py
